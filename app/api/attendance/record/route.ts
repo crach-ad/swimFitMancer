@@ -5,7 +5,7 @@ export async function POST(request: Request) {
   try {
     // Parse the request body
     const body = await request.json();
-    const { clientId, sessionId, notes } = body;
+    const { clientId, sessionId, notes, timestamp } = body;
     
     console.log('Attendance API received request:', { clientId, sessionId, notesLength: notes?.length || 0 });
     
@@ -19,8 +19,8 @@ export async function POST(request: Request) {
     }
     
     // Record attendance using the service function
-    console.log('Calling recordAttendance with:', { clientId, sessionId, notes: notes || '' });
-    const record = await recordAttendance(clientId, sessionId, notes || '');
+    console.log('Calling recordAttendance with:', { clientId, sessionId, notes: notes || '', timestamp });
+    const record = await recordAttendance(clientId, sessionId, notes || '', timestamp);
     console.log('Record attendance result:', record);
     
     if (!record) {

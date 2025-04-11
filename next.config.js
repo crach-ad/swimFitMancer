@@ -32,8 +32,8 @@ const nextConfig = {
     }
     return config;
   },
-  // Ensure that Next.js knows that googleapis, google-auth-library, and gaxios are server-only packages
-  serverExternalPackages: ['googleapis', 'google-auth-library', 'gaxios'],
+  // No server-only packages needed after Google Sheets removal
+  serverExternalPackages: [],
 };
 
 module.exports = nextConfig;

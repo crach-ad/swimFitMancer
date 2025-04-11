@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, ReactNode } from 'react'
+import { AuthProvider } from '@/lib/firebase/auth-context'
 
 interface ProvidersProps {
   children: ReactNode
@@ -19,5 +20,9 @@ export default function Providers({ children }: ProvidersProps) {
     return null
   }
 
-  return <>{children}</>
+  return (
+    <AuthProvider>
+      {children}
+    </AuthProvider>
+  )
 }

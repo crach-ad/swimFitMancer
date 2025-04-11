@@ -1,74 +1,16 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { signIn } from "@/lib/firebase/auth";
-import { toast } from "sonner";
-import Image from "next/image";
-
-export default function HomePage() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const router = useRouter();
-  
-  async function handleLogin() {
-    if (!email || !password) {
-      setError("Please enter both email and password");
-      return;
-    }
-    
-    setLoading(true);
-    setError(null);
-    
-    try {
-      // Attempt to sign in with Firebase
-      await signIn(email, password);
-      
-      // Success - redirect to the main app page (attendance page)
-      toast.success("Login successful");
-      router.push("/attendance");
-    } catch (err: any) {
-      console.error("Login error:", err);
-      
-      // Set user-friendly error message
-      const errorCode = err?.code || "unknown-error";
-      if (errorCode.includes("user-not-found") || errorCode.includes("wrong-password")) {
-        setError("Invalid email or password");
-      } else if (errorCode.includes("too-many-requests")) {
-        setError("Too many failed login attempts. Please try again later.");
-      } else {
-        setError("Login failed. Please check your credentials.");
-      }
-    } finally {
-      setLoading(false);
-    }
-  }
+export default function LoginPage() {
   return (
+
     <div className="flex flex-col items-center justify-center min-h-screen bg-cyan-50 p-4">
       <div className="bg-white p-6 rounded-lg shadow-md w-full max-w-md">
         <div className="text-center mb-6">
-          <div className="flex justify-center mb-2">
-            <Image 
-              src="/images/swimfit-logo.svg" 
-              alt="SwimFit Logo" 
-              width={240} 
-              height={120} 
-              priority 
-              className="mx-auto"
-            />
-          </div>
+          <h1 className="text-3xl font-bold text-cyan-700">SwimFit</h1>
           <p className="text-gray-600 mt-1">Welcome Back</p>
         </div>
 
-        {error && (
-          <div className="p-3 mb-4 bg-red-50 border border-red-200 text-red-700 rounded">
-            {error}
-          </div>
-        )}
-        
-        <form onSubmit={(e) => { e.preventDefault(); handleLogin(); }}>
+        <form>
           <div className="space-y-4">
             <div>
               <label htmlFor="email" className="block text-gray-700 text-sm font-medium mb-1">Email</label>
@@ -76,9 +18,6 @@ export default function HomePage() {
                 id="email"
                 type="email"
                 placeholder="example@email.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                disabled={loading}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-cyan-500"
               />
             </div>
@@ -88,19 +27,15 @@ export default function HomePage() {
               <input
                 id="password"
                 type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                disabled={loading}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-cyan-500"
               />
             </div>
 
             <button 
-              type="submit" 
-              disabled={loading}
-              className="w-full bg-cyan-600 hover:bg-cyan-700 text-white py-2 px-4 rounded transition-colors mt-2 disabled:opacity-70"
+              type="button" 
+              className="w-full bg-cyan-600 hover:bg-cyan-700 text-white py-2 px-4 rounded transition-colors mt-2"
             >
-              {loading ? "Logging in..." : "Login"}
+              Login
             </button>
           </div>
         </form>
@@ -139,5 +74,3 @@ export default function HomePage() {
     </div>
   );
 }
-
-

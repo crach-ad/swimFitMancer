@@ -1,4 +1,4 @@
-import { getSheetData, appendToSheet, createSheet } from './google-sheets';
+import { getAll, getById, add, update, remove, initializeCollection } from './firebase/db';
 import { getClientById } from './client-service';
 import { getSessionById } from './session-service';
 
@@ -13,29 +13,42 @@ export interface Attendance {
   notes: string;
 }
 
-// Sheet name for attendance
-const SHEET_NAME = 'attendance';
+// Collection names for attendance
+const COLLECTION_NAME = 'attendance';
+const SESSION_ATTENDANCE_FORMAT = 'sessions/{sessionId}/attendance';
 
-// Headers for the attendance sheet
-const ATTENDANCE_HEADERS = [
-  'id',
-  'clientId',
-  'clientName',
-  'sessionId',
-  'sessionName',
-  'checkInTime',
-  'notes'
-];
-
-// Initialize the attendance sheet if it doesn't exist
+// Initialize the attendance collection if it doesn't exist
 export async function initAttendanceSheet(): Promise<void> {
-  await createSheet(SHEET_NAME, ATTENDANCE_HEADERS);
+  await initializeCollection(COLLECTION_NAME);
 }
 
-// Get all attendance records
+// Get all attendance records across all sessions
 export async function getAttendanceRecords(): Promise<Attendance[]> {
   try {
-    return await getSheetData(SHEET_NAME);
+    // First get records from the main attendance collection (legacy records)
+    const legacyRecords = await getAll<Attendance>(COLLECTION_NAME);
+    
+    // Then get all sessions to fetch their attendance subcollections
+    const sessions = await getAll<any>('sessions');
+    
+    // Collect attendance records from each session's subcollection
+    const sessionRecordsPromises = sessions.map(async (session) => {
+      const sessionAttendancePath = SESSION_ATTENDANCE_FORMAT.replace('{sessionId}', session.id);
+      try {
+        return await getAll<Attendance>(sessionAttendancePath);
+      } catch (error) {
+        console.error(`Error getting attendance for session ${session.id}:`, error);
+        return [];
+      }
+    });
+    
+    // Wait for all session attendance queries to complete
+    const sessionRecordsArrays = await Promise.all(sessionRecordsPromises);
+    
+    // Flatten the arrays and combine with legacy records
+    const sessionRecords = sessionRecordsArrays.flat();
+    
+    return [...legacyRecords, ...sessionRecords];
   } catch (error) {
     console.error('Error getting attendance records:', error);
     return [];
@@ -56,10 +69,18 @@ export async function getClientAttendance(clientId: string): Promise<Attendance[
 // Get attendance records for a specific session
 export async function getSessionAttendance(sessionId: string): Promise<Attendance[]> {
   try {
-    const records = await getAttendanceRecords();
-    return records.filter(record => record.sessionId === sessionId);
+    // Get attendance directly from the session's attendance subcollection
+    const sessionAttendancePath = SESSION_ATTENDANCE_FORMAT.replace('{sessionId}', sessionId);
+    const sessionRecords = await getAll<Attendance>(sessionAttendancePath);
+    
+    // Also check legacy records in the main attendance collection
+    const legacyRecords = await getAll<Attendance>(COLLECTION_NAME);
+    const filteredLegacyRecords = legacyRecords.filter(record => record.sessionId === sessionId);
+    
+    // Combine both sets of records
+    return [...sessionRecords, ...filteredLegacyRecords];
   } catch (error) {
-    console.error('Error getting session attendance:', error);
+    console.error(`Error getting attendance for session ${sessionId}:`, error);
     return [];
   }
 }
@@ -68,7 +89,8 @@ export async function getSessionAttendance(sessionId: string): Promise<Attendanc
 export async function recordAttendance(
   clientId: string,
   sessionId: string,
-  notes: string = ''
+  notes: string = '',
+  timestamp?: string
 ): Promise<Attendance | null> {
   try {
     console.log('recordAttendance called with:', { clientId, sessionId, notes });
@@ -93,26 +115,19 @@ export async function recordAttendance(
       clientName: client.name,
       sessionId,
       sessionName: session.name,
-      checkInTime: new Date().toISOString(),
+      checkInTime: timestamp || new Date().toISOString(),
       notes
     };
     
     console.log('Created attendance record:', newAttendance);
-    console.log('Appending to Google Sheet:', SHEET_NAME);
     
-    await appendToSheet(SHEET_NAME, [
-      [
-        newAttendance.id,
-        newAttendance.clientId,
-        newAttendance.clientName,
-        newAttendance.sessionId,
-        newAttendance.sessionName,
-        newAttendance.checkInTime,
-        newAttendance.notes
-      ]
-    ]);
+    // Add attendance record to the session's attendance subcollection
+    const sessionAttendancePath = SESSION_ATTENDANCE_FORMAT.replace('{sessionId}', sessionId);
+    console.log(`Adding attendance record to session-specific collection: ${sessionAttendancePath}`);
     
-    console.log('Successfully appended attendance record to sheet');
+    await add<Attendance>(sessionAttendancePath, newAttendance);
+    
+    console.log('Successfully added attendance record to session-specific collection');
     
     // Update client's attendance stats
     console.log('Updating client attendance stats');

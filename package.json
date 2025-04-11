@@ -46,7 +46,7 @@
     "date-fns": "4.1.0",
     "dotenv": "^16.4.7",
     "embla-carousel-react": "8.5.1",
-    "googleapis": "^148.0.0",
+    "firebase": "^11.6.0",
     "html5-qrcode": "^2.3.8",
     "input-otp": "1.4.1",
     "lucide-react": "^0.454.0",
@@ -67,7 +67,7 @@
     "zod": "^3.24.1"
   },
   "devDependencies": {
-    "@types/node": "^22",
+    "@types/node": "^22.14.0",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "postcss": "^8",

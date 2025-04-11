@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { useAuth } from "@/lib/firebase/auth-context"
 import { Label } from "@/components/ui/label"
 import { toast } from "@/components/ui/use-toast"
 import { QrScanner } from "@/components/qr-scanner"
@@ -24,7 +25,10 @@ interface AttendanceWithDetails extends Attendance {
   sessionName?: string;
 }
 
-export default function AttendancePage() {
+// Import withAuth HOC for route protection
+import withAuth from "@/lib/firebase/with-auth"
+
+function AttendancePage() {
   const [activeTab, setActiveTab] = useState("today")
   const [sessions, setSessions] = useState<Session[]>([])
   const [clients, setClients] = useState<Client[]>([])
@@ -40,6 +44,8 @@ export default function AttendancePage() {
   const [selectedOtherSession, setSelectedOtherSession] = useState<string>("") 
   const [selectedHistoryDate, setSelectedHistoryDate] = useState<string>("") 
   const [selectedHistorySessionId, setSelectedHistorySessionId] = useState<string>("")  
+  
+
   
   // Load data on component mount
   useEffect(() => {
@@ -92,6 +98,8 @@ export default function AttendancePage() {
     return `${formatTime(startTime)} - ${formatTime(endTime)}`
   }
   
+
+  
   // Helper function to check if a session is current (happening now)
   const isCurrentSession = (session: Session): boolean => {
     const now = new Date()
@@ -131,7 +139,7 @@ export default function AttendancePage() {
   }
   
   // Handle QR code scanning with clientId from QR code and optional notes
-  const handleQRCodeScan = async (clientId: string, notes?: string) => {
+  const handleQRCodeScan = async (clientId: string, sessionId: string, notes?: string) => {
     try {
       console.log('QR code scan with client ID:', clientId);
       
@@ -152,13 +160,22 @@ export default function AttendancePage() {
       const now = new Date();
       console.log('Current time for session detection:', now.toISOString());
       
-      // Use the current session if available, otherwise use the selected session
-      console.log('Looking for current session among', sessions.length, 'sessions');
-      const currentSession = sessions.find(s => isCurrentSession(s))
-      console.log('Current session detection result:', currentSession ? `Found: ${currentSession.name}` : 'No current session');
+      // Use the sessionId parameter passed from the QR scanner, which contains the selected session
+      console.log('Using session ID selected in QR scanner:', sessionId);
       
-      // If no current session and no selected session, find the most recent or upcoming session
-      let sessionId = currentSession?.id || selectedSession;
+      // Validate that the selected session exists
+      const selectedSessionData = sessions.find(s => s.id === sessionId);
+      if (selectedSessionData) {
+        console.log('Selected session found:', selectedSessionData.name);
+      } else {
+        // If the session doesn't exist (perhaps it was deleted), fall back to current session
+        console.log('Selected session not found. Checking for current session...');
+        const currentSession = sessions.find(s => isCurrentSession(s));
+        if (currentSession) {
+          sessionId = currentSession.id;
+          console.log('Using current session instead:', currentSession.name);
+        }
+      }
       
       if (!sessionId && sessions.length > 0) {
         console.log('No current or selected session, finding most appropriate session...');
@@ -198,7 +215,46 @@ export default function AttendancePage() {
       console.log('Final session ID choice for attendance:', sessionId || 'No session ID available');
       
       if (!sessionId) {
-        throw new Error("No active session found and no sessions available in the system.")
+        // Instead of throwing an error, let's create an ad-hoc session
+        const adhocSessionId = `adhoc_${Date.now()}`;
+        const adhocSession = {
+          id: adhocSessionId,
+          name: "Unscheduled Session",
+          startTime: new Date(Date.now() - 30 * 60000).toISOString(), // started 30 min ago
+          endTime: new Date(Date.now() + 90 * 60000).toISOString(),  // ends in 90 min
+          maxAttendees: 20,
+          description: "Ad-hoc session created during attendance check-in",
+          location: "Main Facility"
+        };
+        
+        // Set the sessionId to our new ad-hoc session
+        sessionId = adhocSessionId;
+        
+        try {
+          // Add this session to the database
+          console.log('Creating ad-hoc session:', adhocSession);
+          const response = await fetch('/api/sessions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(adhocSession)
+          });
+          
+          if (!response.ok) {
+            throw new Error("Failed to create ad-hoc session");
+          }
+          
+          const newSession = await response.json();
+          console.log('Ad-hoc session created:', newSession);
+          
+          // Update sessions list
+          setSessions(prev => [...prev, adhocSession]);
+          
+          // Use this new session
+          sessionId = adhocSession.id;
+        } catch (error) {
+          console.error('Failed to create ad-hoc session:', error);
+          throw new Error("No active session found and could not create an ad-hoc session. Please create a session first.");
+        }
       }
       
       console.log('About to send attendance record to API:', {
@@ -220,7 +276,8 @@ export default function AttendancePage() {
           clientId,
           sessionId,
           notes,
-          status: 'present' // Default to present for QR code scans
+          status: 'present', // Default to present for QR code scans
+          timestamp: new Date().toISOString() // Explicitly include timestamp for better tracking
         }),
       })
       
@@ -244,9 +301,12 @@ export default function AttendancePage() {
         }
       ])
       
+      // Get the session name for better feedback
+      const sessionName = sessions.find(s => s.id === sessionId)?.name || 'Unknown Session';
+      
       toast({
         title: "Success",
-        description: `Attendance recorded for ${client.name}`,
+        description: `${client.name} checked into ${sessionName}`,
       })
       
       setScannerOpen(false)
@@ -341,6 +401,7 @@ export default function AttendancePage() {
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-bold text-cyan-900">Attendance</h1>
           <div className="flex gap-2">
+
             <Dialog open={scannerOpen} onOpenChange={setScannerOpen}>
               <DialogTrigger asChild>
                 <Button size="icon" variant="outline" className="h-9 w-9 border-cyan-200">
@@ -356,6 +417,7 @@ export default function AttendancePage() {
                     onScanSuccess={handleQRCodeScan} 
                     clients={clients}
                     currentSessionId={sessions.find(s => isCurrentSession(s))?.id}
+                    sessions={sessions}
                   />
                 </div>
               </DialogContent>
@@ -527,17 +589,7 @@ export default function AttendancePage() {
                           <p className="mt-4 text-center text-cyan-600">No attendees checked in yet</p>
                         )}
 
-                        <div className="mt-4 flex gap-2">
-                          <Input
-                            placeholder="Search clients..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className="border-cyan-200 bg-white text-cyan-900 placeholder:text-cyan-400"
-                          />
-                          <Button size="icon" variant="ghost" className="h-10 w-10 shrink-0 text-cyan-700">
-                            <Search className="h-5 w-5" />
-                          </Button>
-                        </div>
+                        {/* Search clients section removed */}
 
                         <div className="mt-4 space-y-2">
                           {clients
@@ -838,3 +890,6 @@ function HistoryCard({ date, sessions }: HistoryCardProps) {
     </Card>
   )
 }
+
+// Apply authentication protection to the attendance page
+export default withAuth(AttendancePage);

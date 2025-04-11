@@ -1,4 +1,4 @@
-import { getSheetData, appendToSheet, updateSheetRow, createSheet } from './google-sheets';
+import { getAll, getById, add, update, remove, initializeCollection } from './firebase/db';
 
 // Define Session interface
 export interface Session {
@@ -9,35 +9,28 @@ export interface Session {
   maxAttendees: number;
   description: string;
   location: string;
+  level?: string;           // Difficulty level of the session
+  recurringDays?: string;   // JSON string of recurring days
+  selectedDays?: number[];  // Days of week (0=Sunday, 6=Saturday)
+  isRecurring?: boolean;    // Whether this is a recurring session
+  recurringEndDate?: string; // End date for recurring sessions
 }
 
-// Sheet name for sessions
-const SHEET_NAME = 'sessions';
+// Collection name for sessions
+const COLLECTION_NAME = 'sessions';
 
-// Headers for the sessions sheet
-const SESSION_HEADERS = [
-  'id',
-  'name',
-  'startTime',
-  'endTime',
-  'maxAttendees',
-  'description',
-  'location'
-];
-
-// Initialize the sessions sheet if it doesn't exist
+// Initialize the sessions collection if it doesn't exist
 export async function initSessionSheet(): Promise<void> {
-  await createSheet(SHEET_NAME, SESSION_HEADERS);
+  await initializeCollection(COLLECTION_NAME);
 }
 
 // Get all sessions
 export async function getSessions(): Promise<Session[]> {
   try {
-    const sessions = await getSheetData(SHEET_NAME);
+    const sessions = await getAll<Session>(COLLECTION_NAME);
     return sessions.map(session => ({
       ...session,
-      maxAttendees: parseInt(session.maxAttendees) || 0,
-      isRecurring: session.isRecurring === 'TRUE'
+      maxAttendees: typeof session.maxAttendees === 'string' ? parseInt(session.maxAttendees) || 0 : session.maxAttendees
     }));
   } catch (error) {
     console.error('Error getting sessions:', error);
@@ -48,8 +41,7 @@ export async function getSessions(): Promise<Session[]> {
 // Get a session by ID
 export async function getSessionById(id: string): Promise<Session | null> {
   try {
-    const sessions = await getSessions();
-    return sessions.find(session => session.id === id) || null;
+    return await getById<Session>(COLLECTION_NAME, id);
   } catch (error) {
     console.error('Error getting session by ID:', error);
     return null;
@@ -64,17 +56,8 @@ export async function addSession(session: Omit<Session, 'id'>): Promise<Session>
       id: `session_${Date.now()}`
     };
     
-    await appendToSheet(SHEET_NAME, [
-      [
-        newSession.id,
-        newSession.name,
-        newSession.startTime,
-        newSession.endTime,
-        newSession.maxAttendees.toString(),
-        newSession.description,
-        newSession.location
-      ]
-    ]);
+    // Add to database
+    await add<Session>(COLLECTION_NAME, newSession);
     
     return newSession;
   } catch (error) {
@@ -86,35 +69,21 @@ export async function addSession(session: Omit<Session, 'id'>): Promise<Session>
 // Update a session
 export async function updateSession(id: string, updates: Partial<Session>): Promise<Session | null> {
   try {
-    // Get all sessions
-    const sessions = await getSessions();
+    // Get current session
+    const existingSession = await getSessionById(id);
     
-    // Find the session to update
-    const sessionIndex = sessions.findIndex(session => session.id === id);
-    
-    if (sessionIndex === -1) {
+    if (!existingSession) {
       return null;
     }
     
     // Update the session with new values
     const updatedSession: Session = {
-      ...sessions[sessionIndex],
+      ...existingSession,
       ...updates
     };
     
-    // Get row index (add 2 to account for header row and 0-indexing)
-    const rowIndex = sessionIndex + 2;
-    
-    // Update the row in the sheet
-    await updateSheetRow(SHEET_NAME, rowIndex, [
-      updatedSession.id,
-      updatedSession.name,
-      updatedSession.startTime,
-      updatedSession.endTime,
-      updatedSession.maxAttendees.toString(),
-      updatedSession.description,
-      updatedSession.location
-    ]);
+    // Update in database
+    await update<Session>(COLLECTION_NAME, id, updatedSession);
     
     return updatedSession;
   } catch (error) {
@@ -126,19 +95,15 @@ export async function updateSession(id: string, updates: Partial<Session>): Prom
 // Delete a session
 export async function deleteSession(id: string): Promise<boolean> {
   try {
-    // For simplicity, we'll just mark sessions as deleted by appending "_DELETED" to the id
-    // In a real application, you might want to use a "deleted" flag or move to a different sheet
+    // Check if session exists
     const session = await getSessionById(id);
     
     if (!session) {
       return false;
     }
     
-    const result = await updateSession(id, { 
-      id: `${id}_DELETED`
-    });
-    
-    return Boolean(result);
+    // Remove from database
+    return await remove<Session>(COLLECTION_NAME, id);
   } catch (error) {
     console.error('Error deleting session:', error);
     return false;

@@ -8,14 +8,16 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { CheckCircle2, AlertCircle, Loader2, Camera } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { extractClientIdFromQR } from '@/lib/qrcode-service';
 
 interface QrScannerProps {
-  onScanSuccess: (clientId: string, notes?: string) => Promise<void>;
+  onScanSuccess: (clientId: string, sessionId: string, notes?: string) => Promise<void>;
   fps?: number;
   qrbox?: number;
   clients: { id: string; name: string; }[];
   currentSessionId?: string;
+  sessions?: { id: string; name: string; startTime: string; endTime: string; }[];
 }
 
 export function QrScanner({ 
@@ -23,7 +25,8 @@ export function QrScanner({
   fps = 10, 
   qrbox = 250, 
   clients = [],
-  currentSessionId
+  currentSessionId,
+  sessions = []
 }: QrScannerProps) {
   const [scanner, setScanner] = useState<Html5Qrcode | null>(null);
   const [isScanning, setIsScanning] = useState<boolean>(true);
@@ -33,6 +36,7 @@ export function QrScanner({
   const [scannedClientName, setScannedClientName] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [cameraId, setCameraId] = useState<string>('');
+  const [selectedSessionId, setSelectedSessionId] = useState<string>(currentSessionId || '');
   const scannerContainerId = 'scanner-container';
   const [cameraStarted, setCameraStarted] = useState<boolean>(false);
   
@@ -232,16 +236,22 @@ export function QrScanner({
       return;
     }
     
+    if (!selectedSessionId) {
+      setError('Please select a session for this attendance record.');
+      return;
+    }
+    
     console.log('Submitting attendance for client ID:', scanResult.clientId);
+    console.log('Session ID:', selectedSessionId);
     console.log('Notes:', notes);
     console.log('Client name:', scannedClientName);
     
     setIsSubmitting(true);
     
     try {
-      // Submit attendance with client ID and optional notes
+      // Submit attendance with client ID, session ID, and optional notes
       console.log('Calling onScanSuccess with clientId:', scanResult.clientId);
-      await onScanSuccess(scanResult.clientId, notes);
+      await onScanSuccess(scanResult.clientId, selectedSessionId, notes);
       console.log('onScanSuccess completed successfully');
       
       // Reset form after successful submission
@@ -275,6 +285,7 @@ export function QrScanner({
     setScannedClientName('');
     setNotes('');
     setError(null);
+    // Keep the selected session for the next scan
     setIsScanning(true);
   };
   
@@ -330,8 +341,36 @@ export function QrScanner({
             <div className="mb-6 rounded-md bg-white p-4 shadow-sm">
               <h4 className="mb-1 text-sm font-medium text-gray-500">Client</h4>
               <p className="text-xl font-semibold text-cyan-700">{scannedClientName}</p>
-              {currentSessionId && (
-                <p className="mt-1 text-sm text-gray-500">Session ID: {currentSessionId}</p>
+            </div>
+            
+            {/* Session selection dropdown */}
+            <div className="mb-6">
+              <Label htmlFor="session" className="mb-2 block text-sm font-medium">Select Session:</Label>
+              <Select
+                value={selectedSessionId}
+                onValueChange={(value) => setSelectedSessionId(value)}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select a session" />
+                </SelectTrigger>
+                <SelectContent>
+                  {sessions.length > 0 ? (
+                    sessions.map((session) => (
+                      <SelectItem key={session.id} value={session.id}>
+                        {session.name || `${session.startTime} - ${session.endTime}`}
+                      </SelectItem>
+                    ))
+                  ) : (
+                    <SelectItem value="no-sessions" disabled>
+                      No active sessions available
+                    </SelectItem>
+                  )}
+                </SelectContent>
+              </Select>
+              {selectedSessionId && (
+                <p className="mt-1 text-xs text-gray-500">
+                  Session ID: {selectedSessionId}
+                </p>
               )}
             </div>
             

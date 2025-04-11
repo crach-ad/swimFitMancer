@@ -1,4 +1,4 @@
-import { getSheetData, appendToSheet, updateSheetRow, createSheet } from './google-sheets';
+import { getAll, getById, add, update, remove, initializeCollection } from './firebase/db';
 import { generateQRCode, generateClientQRData } from './qrcode-service';
 
 // Define Client interface
@@ -13,33 +13,23 @@ export interface Client {
   qrCode?: string; // QR code data URL
 }
 
-// Sheet name for clients
-const SHEET_NAME = 'clients';
+// Collection name for clients
+const COLLECTION_NAME = 'clients';
 
-// Headers for the clients sheet
-const CLIENT_HEADERS = [
-  'id',
-  'name',
-  'email',
-  'phone',
-  'registrationDate',
-  'isActive',
-  'notes',
-  'qrCode'
-];
-
-// Initialize the clients sheet if it doesn't exist
+// Initialize the clients collection if it doesn't exist
 export async function initClientSheet(): Promise<void> {
-  await createSheet(SHEET_NAME, CLIENT_HEADERS);
+  await initializeCollection(COLLECTION_NAME);
 }
 
 // Get all clients
 export async function getClients(): Promise<Client[]> {
   try {
-    const clients = await getSheetData(SHEET_NAME);
+    const clients = await getAll<Client>(COLLECTION_NAME);
     return clients.map(client => ({
       ...client,
-      isActive: client.isActive === 'TRUE'
+      isActive: typeof client.isActive === 'string' 
+        ? client.isActive === 'TRUE' || client.isActive === 'true'
+        : Boolean(client.isActive)
     }));
   } catch (error) {
     console.error('Error getting clients:', error);
@@ -50,8 +40,7 @@ export async function getClients(): Promise<Client[]> {
 // Get a client by ID
 export async function getClientById(id: string): Promise<Client | null> {
   try {
-    const clients = await getClients();
-    return clients.find(client => client.id === id) || null;
+    return await getById<Client>(COLLECTION_NAME, id);
   } catch (error) {
     console.error('Error getting client by ID:', error);
     return null;
@@ -82,18 +71,8 @@ export async function addClient(client: Omit<Client, 'id'>): Promise<Client> {
       qrCode
     };
     
-    await appendToSheet(SHEET_NAME, [
-      [
-        newClient.id,
-        newClient.name,
-        newClient.email,
-        newClient.phone,
-        newClient.registrationDate,
-        newClient.isActive.toString().toUpperCase(),
-        newClient.notes,
-        newClient.qrCode
-      ]
-    ]);
+    // Add to database
+    await add<Client>(COLLECTION_NAME, newClient);
     
     return newClient;
   } catch (error) {
@@ -105,19 +84,16 @@ export async function addClient(client: Omit<Client, 'id'>): Promise<Client> {
 // Update a client
 export async function updateClient(id: string, updates: Partial<Client>): Promise<Client | null> {
   try {
-    // Get all clients
-    const clients = await getClients();
+    // Get current client
+    const existingClient = await getClientById(id);
     
-    // Find the client to update
-    const clientIndex = clients.findIndex(client => client.id === id);
-    
-    if (clientIndex === -1) {
+    if (!existingClient) {
       return null;
     }
     
     // Update the client with new values
     const updatedClient: Client = {
-      ...clients[clientIndex],
+      ...existingClient,
       ...updates
     };
     
@@ -127,20 +103,8 @@ export async function updateClient(id: string, updates: Partial<Client>): Promis
       updatedClient.qrCode = await generateQRCode(qrData);
     }
     
-    // Get row index (add 2 to account for header row and 0-indexing)
-    const rowIndex = clientIndex + 2;
-    
-    // Update the row in the sheet
-    await updateSheetRow(SHEET_NAME, rowIndex, [
-      updatedClient.id,
-      updatedClient.name,
-      updatedClient.email,
-      updatedClient.phone,
-      updatedClient.registrationDate,
-      updatedClient.isActive.toString().toUpperCase(),
-      updatedClient.notes || '',
-      updatedClient.qrCode || ''
-    ]);
+    // Update in database
+    await update<Client>(COLLECTION_NAME, id, updatedClient);
     
     return updatedClient;
   } catch (error) {

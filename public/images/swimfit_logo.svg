@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="500" height="200" viewBox="0 0 500 200" xmlns="http://www.w3.org/2000/svg">
+  <rect width="500" height="200" fill="#92d9f4" />
+  <!-- SwimFit text -->
+  <g transform="translate(60, 125) scale(1.2)">
+    <path d="M10,0 C10,-10 20,-15 30,-10 L40,0 L50,10 L60,0 L70,-10 C80,-15 90,-10 90,0 L90,30 L80,40 L70,35 L70,10 L60,20 L50,30 L40,20 L30,10 L30,35 L20,40 L10,30 Z" fill="#3cd598" stroke="#126d41" stroke-width="2" />
+    <path d="M100,0 C100,-10 110,-15 120,-10 L120,30 L110,40 L100,30 Z M120,0 L130,-5 L140,0 L130,5 Z" fill="#3cd598" stroke="#126d41" stroke-width="2" />
+    <path d="M150,0 L160,-10 L170,0 L180,10 L170,20 L160,10 L150,0 Z M150,30 L160,20 L170,30 L160,40 L150,30 Z" fill="#3cd598" stroke="#126d41" stroke-width="2" />
+    <path d="M190,0 L200,-10 L210,0 L200,10 Z M190,30 L200,20 L210,30 L200,40 L190,30 Z M190,0 L190,30 Z M210,0 L210,30 Z" fill="#3cd598" stroke="#126d41" stroke-width="2" />
+    <path d="M220,0 L230,-10 L240,0 L250,10 L240,20 L230,30 L220,20 L220,0 Z M250,0 L250,30 L240,40 L230,35 L240,30 L240,0 Z" fill="#3cd598" stroke="#126d41" stroke-width="2" />
+    <path d="M260,0 L270,-10 L280,0 L270,10 Z M260,0 L260,30 L270,40 L280,30 L280,0 Z" fill="#3cd598" stroke="#126d41" stroke-width="2" />
+    <path d="M290,0 L300,-10 L310,0 L300,10 L290,0 Z M290,0 L290,30 L300,40 L310,30 L310,0 Z" fill="#3cd598" stroke="#126d41" stroke-width="2" />
+  </g>
+  <!-- Swimmer illustration -->
+  <g transform="translate(170, 170)">
+    <path d="M0,0 C20,-20 60,-20 80,0 C90,5 110,5 120,0 L160,-10" fill="none" stroke="#ffb347" stroke-width="15" stroke-linecap="round" />
+    <circle cx="60" cy="-10" r="10" fill="#ffb347" />
+  </g>
+  <!-- Water drops -->
+  <g fill="#92d9f4">
+    <circle cx="92" cy="180" r="3" stroke="#3cd598" stroke-width="1" />
+    <circle cx="100" cy="185" r="2" stroke="#3cd598" stroke-width="1" />
+    <circle cx="108" cy="182" r="4" stroke="#3cd598" stroke-width="1" />
+    <circle cx="350" cy="180" r="3" stroke="#3cd598" stroke-width="1" />
+    <circle cx="360" cy="185" r="2" stroke="#3cd598" stroke-width="1" />
+    <circle cx="370" cy="182" r="4" stroke="#3cd598" stroke-width="1" />
+  </g>
+</svg>

@@ -12,7 +12,7 @@ import { QrScanner } from "@/components/qr-scanner"
 import { recordAttendance } from "@/lib/attendance-service"
 import { getSessionById } from "@/lib/session-service"
 import { toast } from "@/components/ui/use-toast"
-import QRCode from "qrcode.react"
+import { QRCodeSVG } from "qrcode.react"
 
 export default function QRCodePage() {
   const [activeTab, setActiveTab] = useState("generate")
@@ -47,7 +47,7 @@ export default function QRCodePage() {
         if (response.ok) {
           const data = await response.json();
           if (data.sessions && data.sessions.length > 0) {
-            setSessions(data.sessions.map(session => ({
+            setSessions(data.sessions.map((session: any) => ({
               id: session.id,
               name: session.name,
               timeRange: `${formatTime(session.startTime)} - ${formatTime(session.endTime)}`,
@@ -65,7 +65,7 @@ export default function QRCodePage() {
   }, []);
   
   // Format time for display
-  const formatTime = (isoString) => {
+  const formatTime = (isoString: string) => {
     try {
       const date = new Date(isoString);
       return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
@@ -76,7 +76,7 @@ export default function QRCodePage() {
   
   // Generate QR code data
   const getQrCodeData = () => {
-    const session = sessions.find(s => s.id === selectedSession);
+    const session = sessions.find((s: any) => s.id === selectedSession);
     if (!session) return "";
     
     const data = {
@@ -89,7 +89,7 @@ export default function QRCodePage() {
   };
   
   // Handle QR code scan
-  const handleScanSuccess = async (decodedText) => {
+  const handleScanSuccess = async (decodedText: string) => {
     try {
       const data = JSON.parse(decodedText);
       
@@ -125,12 +125,12 @@ export default function QRCodePage() {
           description: `Scanned a ${data.type} QR code for session ID: ${data.sessionId}`,
         });
       }
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("Error processing QR code:", error);
       toast({
         variant: "destructive",
         title: "Error",
-        description: error.message || "Failed to process QR code",
+        description: error instanceof Error ? error.message : "Failed to process QR code",
       });
       throw error;
     }
@@ -211,11 +211,10 @@ export default function QRCodePage() {
             <div className="mb-6 flex flex-col items-center">
               <div className="relative mb-4 rounded-lg bg-white p-4 shadow-md">
                 {/* Generated QR code */}
-                <QRCode 
+                <QRCodeSVG 
                   value={getQrCodeData()} 
                   size={256} 
                   level="H"
-                  renderAs="canvas"
                   includeMargin={true}
                 />
 
@@ -265,7 +264,7 @@ export default function QRCodePage() {
           <TabsContent value="scan" className="mt-4">
             <Card className="mb-6">
               <CardContent className="p-4">
-                <QrScanner onScanSuccess={handleScanSuccess} />
+                <QrScanner onScanSuccess={handleScanSuccess} clients={[]} />
               </CardContent>
             </Card>
             
