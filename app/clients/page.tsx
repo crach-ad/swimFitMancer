@@ -13,8 +13,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { toast } from "@/components/ui/use-toast"
 import { QRCodeDisplay } from "@/components/qr-code-display"
 import { Client } from "@/lib/client-service"
+import withAuth from "@/lib/firebase/with-auth"
+import { HomeButton } from "@/components/home-button"
 
-export default function ClientsPage() {
+function ClientsPage() {
   const [searchQuery, setSearchQuery] = useState("")
   const [clients, setClients] = useState<Client[]>([])
   const [loading, setLoading] = useState(true)
@@ -143,7 +145,10 @@ export default function ClientsPage() {
   const inactiveClients = filteredClients.filter((client) => !client.isActive)
 
   return (
-    <div className="pb-20">
+    <div className="pb-20 p-4">
+      {/* Back arrow for navigation to dashboard */}
+      <HomeButton />
+      
       {/* Header */}
       <header className="sticky top-0 z-10 border-b border-cyan-200 bg-white/80 p-4 backdrop-blur">
         <div className="flex items-center justify-between">
@@ -239,7 +244,7 @@ export default function ClientsPage() {
           </Dialog>
         </div>
 
-        {/* Search */}
+        {/* Search and View All */}
         <div className="mt-4 flex gap-2">
           <Input
             placeholder="Search clients..."
@@ -247,6 +252,13 @@ export default function ClientsPage() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
+          <Button 
+            variant="outline" 
+            className="shrink-0 border-cyan-200 bg-white text-cyan-900"
+            onClick={() => setSearchQuery("")}
+          >
+            View All Clients
+          </Button>
           <Button size="icon" variant="outline" className="h-10 w-10 shrink-0 border-cyan-200">
             <Filter className="h-5 w-5 text-cyan-700" />
           </Button>
@@ -497,3 +509,6 @@ function ClientCard({ id, name, email, phone, notes, qrCode }: ClientCardProps) 
     </Dialog>
   )
 }
+
+// Apply authentication protection to the clients page
+export default withAuth(ClientsPage);

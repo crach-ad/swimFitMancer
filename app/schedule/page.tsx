@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/components/ui/use-toast"
 import { addSession, getSessions } from "@/lib/session-service"
 import withAuth from "@/lib/firebase/with-auth"
+import { HomeButton } from "@/components/home-button"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -233,7 +234,10 @@ function SchedulePage() {
   }
 
   return (
-    <div className="pb-20">
+    <div className="pb-20 p-4">
+      {/* Back arrow for navigation to dashboard */}
+      <HomeButton />
+      
       {/* Header */}
       <header className="sticky top-0 z-10 border-b border-cyan-200 bg-white/80 p-4 backdrop-blur">
         <div className="flex items-center justify-between">
@@ -251,6 +255,14 @@ function SchedulePage() {
               <div className="grid gap-4 py-4">
                 <form onSubmit={async (e) => {
                   e.preventDefault()
+                  console.log('Submit button clicked. Starting form submission process.')
+                  
+                  // Show immediate visual feedback
+                  toast({
+                    title: "Processing",
+                    description: "Adding session to schedule...",
+                    variant: "default"
+                  })
                   
                   try {
                     // Create the date-time values from the form inputs
@@ -268,13 +280,19 @@ function SchedulePage() {
                     }
                     
                     // Validate we have at least one day selected
+                    console.log('Selected days:', selectedDays)
                     if (selectedDays.length === 0) {
+                      // Automatically select the day corresponding to the chosen date
+                      const selectedDateDay = new Date(newSessionDate).getDay()
+                      console.log('Auto-selecting day of session date:', selectedDateDay)
+                      setSelectedDays([selectedDateDay])
+                      
+                      // Show toast that we automatically selected the day
                       toast({
-                        variant: "destructive",
-                        title: "No Days Selected",
-                        description: "Please select at least one day of the week"
+                        variant: "default",
+                        title: "Day Auto-Selected",
+                        description: "We've selected the day that matches your chosen date."
                       })
-                      return
                     }
                     
                     // Validate recurring end date if recurring is enabled
@@ -291,7 +309,8 @@ function SchedulePage() {
                       }
                     }
 
-                    const sessionData = {
+                    // Create session data object with proper typing - handle recurringEndDate properly for Firestore
+                    const sessionData: Omit<Session, 'id'> = {
                       name: newSessionName,
                       startTime: startDateTime.toISOString(),
                       endTime: endDateTime.toISOString(),
@@ -299,10 +318,17 @@ function SchedulePage() {
                       maxAttendees: newSessionMaxAttendees,
                       description: newSessionDescription || "Regular swimming session",
                       selectedDays: selectedDays,
-                      isRecurring: isRecurring,
-                      recurringEndDate: isRecurring ? recurringEndDate : undefined
+                      isRecurring: isRecurring
                     }
                     
+                    // Only add recurringEndDate if it's a recurring event
+                    // This prevents sending 'undefined' which Firestore doesn't accept
+                    if (isRecurring) {
+                      // Using type assertion to add optional property
+                      (sessionData as any).recurringEndDate = recurringEndDate;
+                    }
+                    
+                    console.log('About to add session with data:', JSON.stringify(sessionData, null, 2))
                     // Create the session directly using the session service
                     const newSession = await addSession(sessionData)
                     console.log('Session created successfully:', newSession)
@@ -321,12 +347,30 @@ function SchedulePage() {
                     setIsRecurring(false)
                     setRecurringEndDate(new Date(Date.now() + 28 * 24 * 60 * 60 * 1000).toISOString().split('T')[0])
                     
+                    // Add toast notification with more visible styling
+                    console.log('Displaying success toast notification')
                     toast({
-                      title: "Success",
-                      description: "Session created successfully",
+                      title: "Success!",
+                      description: "Session created successfully and added to schedule",
+                      variant: "default",
+                      className: "bg-green-100 border border-green-500 text-green-800"
                     })
+                    
+                    // Close the dialog after success
+                    const closeButton = document.querySelector('[data-radix-dialog-close]') as HTMLElement;
+                    if (closeButton) {
+                      closeButton.click();
+                    }
                   } catch (error) {
                     console.error('Error creating session:', error)
+                    // More detailed error logging
+                    if (error instanceof Error) {
+                      console.error('Error message:', error.message)
+                      console.error('Error stack:', error.stack)
+                    }
+                    
+                    // Add toast notification for error
+                    console.log('Displaying error toast notification')
                     toast({
                       variant: "destructive",
                       title: "Error",
@@ -475,7 +519,12 @@ function SchedulePage() {
                       />
                     </div>
                     
-                    <Button type="submit" className="mt-2 bg-cyan-600 hover:bg-cyan-700">Add Session</Button>
+                    <Button type="submit" className="mt-2 bg-cyan-600 hover:bg-cyan-700 relative group">
+                      <span>Add Session</span>
+                      <span className="absolute inset-0 h-full w-full flex items-center justify-center bg-cyan-700 text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-md">
+                        Click to Add
+                      </span>
+                    </Button>
                   </div>
                 </form>
               </div>

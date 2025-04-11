@@ -3,7 +3,7 @@ import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
-import { NavBar } from "@/components/navbar"
+// NavBar removed per request
 import Providers from "./providers"
 import { Toaster } from "sonner"
 
@@ -27,7 +27,6 @@ export default function RootLayout({
         <Providers>
           <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false} disableTransitionOnChange>
             <div className="flex min-h-screen flex-col bg-gradient-to-b from-cyan-50 to-blue-100">
-              <NavBar />
               <main className="flex-1">
                 {children}
               </main>

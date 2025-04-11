@@ -2,16 +2,15 @@ import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
 import { getFirestore as getFirestoreInstance, Firestore } from 'firebase/firestore';
 import { getAuth as getAuthInstance, Auth } from 'firebase/auth';
 
-// Your Firebase configuration with actual values
-// Note: In production, these should be moved to environment variables
+// Firebase configuration using environment variables
 const firebaseConfig = {
-  apiKey: "AIzaSyBRFQlCEWfbudUqgtHMo_3qpsa_am9Ldys",
-  authDomain: "swimfit-5647c.firebaseapp.com",
-  projectId: "swimfit-5647c",
-  storageBucket: "swimfit-5647c.firebasestorage.app",
-  messagingSenderId: "112547511405",
-  appId: "1:112547511405:web:0a08efb1e028729d4c5364",
-  measurementId: "G-1KBBWN51X6"
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID
 };
 
 // Initialize Firebase app (ensure it's only initialized once)

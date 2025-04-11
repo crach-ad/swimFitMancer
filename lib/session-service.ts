@@ -51,17 +51,34 @@ export async function getSessionById(id: string): Promise<Session | null> {
 // Add a new session
 export async function addSession(session: Omit<Session, 'id'>): Promise<Session> {
   try {
+    console.log('Session service - Starting to add session:', session);
+    
+    // Create a valid session object with an ID and properly handle optional fields
     const newSession: Session = {
       ...session,
       id: `session_${Date.now()}`
     };
     
+    // Remove any undefined values to avoid Firebase errors
+    Object.keys(newSession).forEach(key => {
+      if (newSession[key as keyof Session] === undefined) {
+        delete newSession[key as keyof Session];
+      }
+    });
+    
+    console.log('Session service - Clean session object to add:', newSession);
+    
     // Add to database
     await add<Session>(COLLECTION_NAME, newSession);
+    console.log('Session service - Successfully added to Firestore');
     
     return newSession;
   } catch (error) {
-    console.error('Error adding session:', error);
+    console.error('Session service - Error adding session:', error);
+    // More descriptive error
+    if (error instanceof Error) {
+      throw new Error(`Failed to add session: ${error.message}`);
+    }
     throw error;
   }
 }

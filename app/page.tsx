@@ -1,143 +1,219 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { signIn } from "@/lib/firebase/auth";
-import { toast } from "sonner";
+import { useState, useEffect } from "react";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import withAuth from "@/lib/firebase/with-auth";
+import { useAuth } from "@/lib/firebase/auth-context";
+import { getSessions, type Session } from "@/lib/session-service";
+import { getAuth, signOut } from "firebase/auth";
 
-export default function HomePage() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+// Dashboard metrics card component removed
+
+function Dashboard() {
+  const { user } = useAuth();
   const router = useRouter();
-  
-  async function handleLogin() {
-    if (!email || !password) {
-      setError("Please enter both email and password");
-      return;
+  const [sessions, setSessions] = useState<Session[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    // Redirect to login if not authenticated
+    if (!user) {
+      router.push("/auth/login");
     }
-    
-    setLoading(true);
-    setError(null);
-    
-    try {
-      // Attempt to sign in with Firebase
-      await signIn(email, password);
-      
-      // Success - redirect to the main app page (attendance page)
-      toast.success("Login successful");
-      router.push("/attendance");
-    } catch (err: any) {
-      console.error("Login error:", err);
-      
-      // Set user-friendly error message
-      const errorCode = err?.code || "unknown-error";
-      if (errorCode.includes("user-not-found") || errorCode.includes("wrong-password")) {
-        setError("Invalid email or password");
-      } else if (errorCode.includes("too-many-requests")) {
-        setError("Too many failed login attempts. Please try again later.");
-      } else {
-        setError("Login failed. Please check your credentials.");
+  }, [user, router]);
+
+  // Fetch sessions from Firebase
+  useEffect(() => {
+    const fetchSessions = async () => {
+      try {
+        setLoading(true);
+        const allSessions = await getSessions();
+        
+        // Sort sessions by start time
+        const sortedSessions = allSessions.sort((a, b) => {
+          const dateA = new Date(a.startTime);
+          const dateB = new Date(b.startTime);
+          return dateA.getTime() - dateB.getTime();
+        });
+        
+        // Filter out sessions that have already happened
+        const now = new Date();
+        const upcomingSessions = sortedSessions.filter(session => {
+          const sessionDate = new Date(session.startTime);
+          return sessionDate >= now;
+        });
+        
+        // Get the next 3 upcoming sessions
+        const nextSessions = upcomingSessions.slice(0, 3);
+        setSessions(nextSessions);
+      } catch (error) {
+        console.error('Error fetching sessions:', error);
+      } finally {
+        setLoading(false);
       }
-    } finally {
-      setLoading(false);
-    }
-  }
+    };
+    
+    fetchSessions();
+  }, []);
+
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-cyan-50 p-4">
-      <div className="bg-white p-6 rounded-lg shadow-md w-full max-w-md">
-        <div className="text-center mb-6">
-          <div className="flex justify-center mb-2">
-            <Image 
-              src="/images/swimfit-logo.svg" 
-              alt="SwimFit Logo" 
-              width={240} 
-              height={120} 
-              priority 
-              className="mx-auto"
+    <div className="p-6 max-w-7xl mx-auto">
+      <div className="flex justify-between items-center mb-8">
+        <div>
+          <h1 className="text-3xl font-bold text-slate-800">Dashboard</h1>
+          <p className="text-slate-600">Welcome back, {user?.displayName || "Swimmer"}!</p>
+        </div>
+
+        <div className="flex items-center space-x-4">
+          <button 
+            onClick={async () => {
+              // Sign out and redirect to login
+              if (confirm('Are you sure you want to sign out?')) {
+                try {
+                  // Sign out from Firebase
+                  const auth = getAuth();
+                  await signOut(auth);
+                  
+                  // Navigate to login page
+                  router.push('/auth/login');
+                } catch (error) {
+                  console.error('Error signing out:', error);
+                  // Redirect anyway in case of error
+                  router.push('/auth/login');
+                }
+              }
+            }}
+            className="group cursor-pointer hidden md:block relative"
+            aria-label="Sign out and return to login"
+          >
+            <Image
+              src="/images/swimfit-logo.png"
+              alt="SwimFit Logo"
+              width={120}
+              height={50}
+              className="transition-opacity group-hover:opacity-80"
             />
-          </div>
-          <p className="text-gray-600 mt-1">Welcome Back</p>
-        </div>
-
-        {error && (
-          <div className="p-3 mb-4 bg-red-50 border border-red-200 text-red-700 rounded">
-            {error}
-          </div>
-        )}
-        
-        <form onSubmit={(e) => { e.preventDefault(); handleLogin(); }}>
-          <div className="space-y-4">
-            <div>
-              <label htmlFor="email" className="block text-gray-700 text-sm font-medium mb-1">Email</label>
-              <input
-                id="email"
-                type="email"
-                placeholder="example@email.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                disabled={loading}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-cyan-500"
-              />
-            </div>
-            
-            <div>
-              <label htmlFor="password" className="block text-gray-700 text-sm font-medium mb-1">Password</label>
-              <input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                disabled={loading}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-cyan-500"
-              />
-            </div>
-
-            <button 
-              type="submit" 
-              disabled={loading}
-              className="w-full bg-cyan-600 hover:bg-cyan-700 text-white py-2 px-4 rounded transition-colors mt-2 disabled:opacity-70"
-            >
-              {loading ? "Logging in..." : "Login"}
-            </button>
-          </div>
-        </form>
-
-        <div className="text-center text-sm mt-4 text-gray-600">
-          Don't have an account?{" "}
-          <a href="/auth/signup" className="text-cyan-600 hover:underline font-semibold">
-            Sign up
-          </a>
+            <span className="text-xs text-cyan-700 absolute -bottom-4 right-0 opacity-0 group-hover:opacity-100 transition-opacity">
+              Sign out
+            </span>
+          </button>
         </div>
       </div>
 
-      {/* Simple Program Highlights */}
-      <div className="mt-8 w-full max-w-md space-y-3">
-        <h3 className="text-lg font-semibold text-center text-cyan-800">Our Programs</h3>
-        
-        <div className="bg-white p-3 rounded shadow-sm border border-cyan-100">
-          <h4 className="font-medium text-cyan-700">Muscle Aerobics</h4>
-          <p className="text-sm text-gray-600 mt-1">Build strength with water-based fitness.</p>
-        </div>
-        
-        <div className="bg-white p-3 rounded shadow-sm border border-cyan-100">
-          <h4 className="font-medium text-cyan-700">Learn to Swim</h4>
-          <p className="text-sm text-gray-600 mt-1">Master swimming fundamentals with expert instructors.</p>
-        </div>
-        
-        <div className="bg-white p-3 rounded shadow-sm border border-cyan-100">
-          <h4 className="font-medium text-cyan-700">Stroke Development</h4>
-          <p className="text-sm text-gray-600 mt-1">Refine your technique and efficiency.</p>
-        </div>
+      {/* Stats section removed as requested */}
+
+      {/* Main content area */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* First column - schedule summary */}
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle>Upcoming Classes</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {/* Class items */}
+              {loading ? (
+                // Show skeletons while loading
+                [...Array(3)].map((_, i) => (
+                  <div key={i} className="flex justify-between items-center p-3 bg-slate-50 rounded-md">
+                    <div className="w-full">
+                      <Skeleton className="h-5 w-40 mb-2" />
+                      <Skeleton className="h-4 w-60" />
+                    </div>
+                    <Skeleton className="h-8 w-24 rounded-full" />
+                  </div>
+                ))
+              ) : sessions.length > 0 ? (
+                // Show actual sessions
+                sessions.map((session) => {
+                  // Format date and time
+                  const sessionDate = new Date(session.startTime);
+                  const now = new Date();
+                  const tomorrow = new Date(now);
+                  tomorrow.setDate(tomorrow.getDate() + 1);
+                  
+                  // Format date display
+                  let dateDisplay = '';
+                  if (sessionDate.toDateString() === now.toDateString()) {
+                    dateDisplay = 'Today';
+                  } else if (sessionDate.toDateString() === tomorrow.toDateString()) {
+                    dateDisplay = 'Tomorrow';
+                  } else {
+                    dateDisplay = sessionDate.toLocaleDateString('en-US', { weekday: 'long' });
+                  }
+                  
+                  // Format time
+                  const timeDisplay = sessionDate.toLocaleTimeString('en-US', { 
+                    hour: 'numeric', 
+                    minute: '2-digit',
+                    hour12: true 
+                  });
+                  
+                  return (
+                    <div key={session.id} className="flex justify-between items-center p-3 bg-slate-50 rounded-md">
+                      <div>
+                        <p className="font-medium text-slate-800">{session.name}</p>
+                        <p className="text-sm text-slate-500">
+                          {dateDisplay}, {timeDisplay} · {session.location}
+                        </p>
+                      </div>
+                      <div className="text-sm font-medium px-3 py-1 rounded-full bg-sky-100 text-sky-800">
+                        {session.maxAttendees ? `${session.maxAttendees} max` : 'Open'}
+                      </div>
+                    </div>
+                  );
+                })
+              ) : (
+                // Show message if no upcoming sessions
+                <div className="text-center p-4 text-slate-500">
+                  No upcoming classes scheduled.
+                </div>
+              )}
+              <div className="mt-4">
+                <button onClick={() => router.push('/schedule')} className="text-sm text-sky-600 hover:text-sky-800 font-medium">
+                  View full schedule →
+                </button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Second column - quick access */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Quick Actions</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              <button 
+                onClick={() => router.push('/attendance')}
+                className="w-full py-2 px-4 bg-emerald-500 hover:bg-emerald-600 text-white rounded-md transition-colors flex items-center justify-center font-medium"
+              >
+                Take Attendance
+              </button>
+              <button 
+                onClick={() => router.push('/clients')}
+                className="w-full py-2 px-4 bg-sky-500 hover:bg-sky-600 text-white rounded-md transition-colors flex items-center justify-center font-medium"
+              >
+                Manage Clients
+              </button>
+              <button 
+                onClick={() => router.push('/schedule')}
+                className="w-full py-2 px-4 bg-indigo-500 hover:bg-indigo-600 text-white rounded-md transition-colors flex items-center justify-center font-medium"
+              >
+                Manage Schedule
+              </button>
+            </div>
+          </CardContent>
+        </Card>
       </div>
-      
-      <footer className="mt-8 text-center text-xs text-gray-500 pb-4">
-        © {new Date().getFullYear()} SwimFit. All rights reserved.
-      </footer>
     </div>
   );
 }
 
+// Export with authentication protection
+export default withAuth(Dashboard);
 

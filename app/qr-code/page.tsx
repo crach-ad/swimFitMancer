@@ -13,8 +13,9 @@ import { recordAttendance } from "@/lib/attendance-service"
 import { getSessionById } from "@/lib/session-service"
 import { toast } from "@/components/ui/use-toast"
 import { QRCodeSVG } from "qrcode.react"
+import withAuth from "@/lib/firebase/with-auth"
 
-export default function QRCodePage() {
+function QRCodePage() {
   const [activeTab, setActiveTab] = useState("generate")
   const [selectedSession, setSelectedSession] = useState("beginner-technique")
   const [codeType, setCodeType] = useState("attendance")
@@ -286,3 +287,6 @@ export default function QRCodePage() {
     </div>
   )
 }
+
+// Apply authentication protection to the QR code page
+export default withAuth(QRCodePage);

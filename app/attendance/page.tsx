@@ -19,6 +19,7 @@ import type { Session } from "@/lib/session-service"
 import type { Attendance } from "@/lib/attendance-service"
 // Import custom components
 import { SessionHistoryDialog, type SessionHistoryProps } from "./session-history-dialog"
+import { HomeButton } from "@/components/home-button"
 
 interface AttendanceWithDetails extends Attendance {
   clientName?: string;
@@ -395,7 +396,10 @@ function AttendancePage() {
   }
 
   return (
-    <div className="pb-20">
+    <div className="pb-20 p-4">
+      {/* Back arrow for navigation to dashboard */}
+      <HomeButton />
+      
       {/* Header */}
       <header className="sticky top-0 z-10 border-b border-cyan-200 bg-white/80 p-4 backdrop-blur">
         <div className="flex items-center justify-between">
