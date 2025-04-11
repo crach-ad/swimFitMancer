@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { ArrowRight, Loader2 } from "lucide-react";
+import { onAuthStateChange } from "@/lib/firebase/auth";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,15 +17,44 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [lastUser, setLastUser] = useState<string | null>(null);
   const router = useRouter();
   const { toast } = useToast();
+  
+  // Check if user has previously logged in
+  useEffect(() => {
+    // Try to get last logged in user from localStorage
+    const storedUser = localStorage.getItem('lastLoginUser');
+    if (storedUser) {
+      try {
+        setLastUser(storedUser);
+      } catch (e) {
+        console.error('Error parsing stored user:', e);
+      }
+    }
+    
+    // Also check if there's an active session
+    const unsubscribe = onAuthStateChange((user) => {
+      if (user) {
+        // User is already signed in, redirect to dashboard
+        router.push('/');
+      }
+    });
+    
+    return () => unsubscribe();
+  }, [router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
     try {
-      await signIn(email, password);
+      const user = await signIn(email, password);
+      // Store user display name for future logins
+      if (user.displayName) {
+        localStorage.setItem('lastLoginUser', user.displayName);
+      }
+      
       toast({
         title: "Success",
         description: "You have successfully logged in!",
@@ -79,7 +109,9 @@ export default function LoginPage() {
           transition={{ duration: 0.5, delay: 0.3 }}
         >
           <div className="bg-white/80 backdrop-blur-sm rounded-xl shadow-lg p-6 border border-sky-100">
-            <h1 className="text-2xl font-semibold text-gray-800 mb-6 text-center">Welcome Back</h1>
+            <h1 className="text-2xl font-semibold text-gray-800 mb-6 text-center">
+              {lastUser ? `Welcome Back, ${lastUser}` : 'Welcome Back'}
+            </h1>
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
