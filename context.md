@@ -30,6 +30,10 @@ This project involves integrating functionality from the Crach-scan client manag
 - Firebase integration complete
   - Firestore database set up for data storage
   - Session-specific attendance tracking implemented with nested collection paths
+- API Routes updated for Vercel deployment
+  - Fixed route handler signatures to use NextRequest type
+  - Created alternate API route for package limit updates
+  - Resolved dependency conflicts for production deployment
 - UI Improvements
   - Simplified dashboard design with metrics section removed for cleaner interface
   - Minimalist login UI with SwimFit branding directly on homepage (no redirection needed)
