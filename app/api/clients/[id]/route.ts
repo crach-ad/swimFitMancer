@@ -5,11 +5,11 @@ import { updateClient } from '@/lib/client-service';
 // This endpoint specifically used for package limit updates
 export async function PATCH(
   request: Request,
-  { params }: { params: { id: string } }
+  context: { params: { id: string } }
 ) {
   try {
     // Extract client ID from URL parameter
-    const clientId = params.id;
+    const clientId = context.params.id;
     
     // Parse request body for update data
     const data = await request.json();
