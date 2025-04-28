@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "vercel-build": "npm install --legacy-peer-deps && next build",
     "start": "next start",
     "lint": "next lint",
     "migrate:client-qrcodes": "node --experimental-specifier-resolution=node scripts/migrate-clients-add-qrcodes.js"
@@ -57,9 +58,9 @@
     "next-themes": "^0.4.4",
     "qrcode": "^1.5.4",
     "qrcode.react": "^4.2.0",
-    "react": "^18",
+    "react": "18.2.0",
     "react-day-picker": "8.10.1",
-    "react-dom": "^18",
+    "react-dom": "18.2.0",
     "react-hook-form": "^7.54.1",
     "react-resizable-panels": "^2.1.7",
     "recharts": "2.15.0",

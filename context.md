@@ -34,8 +34,12 @@ This project involves integrating functionality from the Crach-scan client manag
   - Fixed route handler signatures to use NextRequest type
   - Created alternate API route for package limit updates
   - Resolved dependency conflicts for production deployment
-  - Downgraded React from v19 to v18 for compatibility with react-day-picker
-  - Adjusted date-fns version to ensure compatibility with the component ecosystem
+  - Switched to exact React version 18.2.0 (from v19) for compatibility
+  - Adjusted date-fns version for component ecosystem compatibility
+  - Removed custom Context type definitions in favor of inline types
+  - Added vercel-build script with --legacy-peer-deps flag
+  - Updated vercel.json to use custom build command
+  - Ensured consistent API route handler signatures across the app
 - UI Improvements
   - Simplified dashboard design with metrics section removed for cleaner interface
   - Minimalist login UI with SwimFit branding directly on homepage (no redirection needed)
