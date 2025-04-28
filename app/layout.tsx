@@ -12,8 +12,8 @@ import { AnimationProvider } from "@/components/animation-provider"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "SwimFit - Client Management",
-  description: "Manage your swim clients, track attendance, and schedule sessions",
+  title: "SwimFitMancer - Client & Package Management",
+  description: "Manage swim clients, track packages & attendance, and schedule sessions",
   generator: 'v0.dev'
 }
 
