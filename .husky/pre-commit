@@ -1,0 +1,58 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+# Check for API keys, credentials, and other sensitive information
+echo "🔍 Checking for sensitive information in staged files..."
+
+# Define patterns to search for
+SENSITIVE_PATTERNS=(
+  "NEXT_PUBLIC_FIREBASE_API_KEY=\w+" 
+  "apiKey:\s*['\"](AIza[0-9A-Za-z\-_]{35})['\"]"
+  "authDomain:\s*['\"](.*)"
+  "NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=\w+"
+  "API_KEY\s*=\s*['\"](.*)['\"]" 
+  "SECRET\s*=\s*['\"](.*)['\"]" 
+  "PASSWORD\s*=\s*['\"](.*)['\"]" 
+  "TOKEN\s*=\s*['\"](.*)['\"]" 
+)
+
+# Get staged files
+STAGED_FILES=$(git diff --cached --name-only)
+
+# Flag to track if sensitive info was found
+SENSITIVE_INFO_FOUND=false
+
+# Check each staged file for sensitive patterns
+for FILE in $STAGED_FILES; do
+  # Skip checking non-existent files (e.g., deleted files)
+  [ -f "$FILE" ] || continue
+  
+  # Skip .env.template - it's meant to have variable names
+  if [[ "$FILE" == *".env.template"* ]]; then
+    continue
+  fi
+  
+  # Skip binary files, images, etc.
+  if [[ "$FILE" =~ \.(png|jpg|jpeg|gif|svg|pdf|zip|ico)$ ]]; then
+    continue
+  fi
+  
+  # Check for sensitive patterns
+  for PATTERN in "${SENSITIVE_PATTERNS[@]}"; do
+    if grep -q "$PATTERN" "$FILE"; then
+      echo "❌ Sensitive information detected in $FILE"
+      echo "   Pattern: $PATTERN"
+      SENSITIVE_INFO_FOUND=true
+    fi
+  done
+done
+
+# If sensitive information is found, abort the commit
+if [ "$SENSITIVE_INFO_FOUND" = true ]; then
+  echo "⛔ Commit aborted due to sensitive information in staged files."
+  echo "   Please remove the sensitive data and try committing again."
+  echo "   Consider using environment variables instead of hardcoding secrets."
+  exit 1
+fi
+
+echo "✅ No sensitive information detected in staged files."
