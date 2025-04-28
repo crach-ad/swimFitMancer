@@ -5,18 +5,24 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import withAuth from "@/lib/firebase/with-auth";
 import { useAuth } from "@/lib/firebase/auth-context";
 import { getSessions, type Session } from "@/lib/session-service";
+import { getClients, type Client } from "@/lib/client-service";
 import { getAuth, signOut } from "firebase/auth";
 import { motion } from "framer-motion";
+import { Bell, Users, AlertTriangle } from "lucide-react";
 
 // Dashboard component with animations
 function Dashboard() {
   const { user } = useAuth();
   const router = useRouter();
   const [sessions, setSessions] = useState<Session[]>([]);
+  const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
+  const [clientsLoading, setClientsLoading] = useState(true);
   const [userName, setUserName] = useState<string>("");
 
   useEffect(() => {
@@ -71,6 +77,23 @@ function Dashboard() {
     };
     
     fetchSessions();
+  }, []);
+
+  // Fetch clients for package limit notifications
+  useEffect(() => {
+    const fetchClients = async () => {
+      try {
+        setClientsLoading(true);
+        const allClients = await getClients();
+        setClients(allClients);
+      } catch (error) {
+        console.error('Error fetching clients:', error);
+      } finally {
+        setClientsLoading(false);
+      }
+    };
+    
+    fetchClients();
   }, []);
 
   // Animation variants for staggered animations
@@ -276,11 +299,148 @@ function Dashboard() {
           </Card>
         </motion.div>
 
-        {/* Second column - quick access */}
+        {/* Second column - notifications and quick access */}
         <motion.div
           variants={itemVariants}
         >
-          <Card className="h-full hover:shadow-lg transition-shadow duration-300">
+          <Card className="hover:shadow-lg transition-shadow duration-300 mb-6">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-lg font-semibold">Package Notifications</CardTitle>
+              <Bell className="h-5 w-5 text-amber-500" />
+            </CardHeader>
+            <CardContent>
+              {clientsLoading ? (
+                <div className="space-y-2">
+                  <Skeleton className="h-12 w-full" />
+                  <Skeleton className="h-12 w-full" />
+                </div>
+              ) : (
+                <div>
+                  {/* Filter clients approaching or exceeding package limits */}
+                  {(() => {
+                    console.log('All clients:', clients);
+                    
+                    // Enhanced filtering to catch more notification scenarios
+                    const notificationClients = clients.filter(client => {
+                      // Skip clients without package limit set
+                      if (!client.packageLimit || client.packageLimit <= 0) return false;
+                      
+                      // Ensure sessionCount exists (default to 0 if not set)
+                      const sessionCount = client.sessionCount || 0;
+                      
+                      // Calculate usage percentage
+                      const usagePercentage = (sessionCount / client.packageLimit) * 100;
+                      console.log(`Client ${client.name}: ${sessionCount}/${client.packageLimit} = ${usagePercentage.toFixed(1)}%`);
+                      
+                      // Show notifications for clients at 70% or more of their package limit
+                      // Lowered threshold slightly to catch more notifications
+                      return usagePercentage >= 70;
+                    });
+                    
+                    console.log('Notification clients:', notificationClients);
+                    
+                    if (notificationClients.length === 0) {
+                      return (
+                        <div className="text-center py-4 text-slate-500">
+                          <p>No package limit notifications.</p>
+                          <p className="text-xs mt-2">Notifications appear when clients reach 70% of their package limit</p>
+                        </div>
+                      );
+                    }
+                    
+                    // Sort by usage percentage (highest first)
+                    notificationClients.sort((a, b) => {
+                      const usageA = ((a.sessionCount || 0) / (a.packageLimit || 1)) * 100;
+                      const usageB = ((b.sessionCount || 0) / (b.packageLimit || 1)) * 100;
+                      return usageB - usageA;
+                    });
+                    
+                    return (
+                      <div className="space-y-3 max-h-[250px] overflow-y-auto pr-1">
+                        {notificationClients.map((client) => {
+                          // Calculate values with proper defaults
+                          const sessionCount = client.sessionCount || 0;
+                          const packageLimit = client.packageLimit || 10;
+                          const usagePercentage = (sessionCount / packageLimit) * 100;
+                          const formattedPercentage = usagePercentage.toFixed(0);
+                          
+                          // Determine status categories
+                          const isExceeded = usagePercentage >= 100;
+                          const isWarning = usagePercentage >= 90 && usagePercentage < 100;
+                          const isApproaching = usagePercentage >= 70 && usagePercentage < 90;
+                          
+                          // Color schemes based on status
+                          const colorScheme = isExceeded ? 'bg-red-50 border-l-4 border-red-500' : 
+                                             isWarning ? 'bg-amber-50 border-l-4 border-amber-500' : 
+                                                        'bg-blue-50 border-l-4 border-blue-500';
+                                                        
+                          const textColor = isExceeded ? 'text-red-600' : 
+                                          isWarning ? 'text-amber-600' : 
+                                                     'text-blue-600';
+                                                     
+                          const badgeClass = isExceeded ? 'bg-red-100 text-red-800' : 
+                                           isWarning ? 'bg-amber-100 text-amber-800' : 
+                                                      'bg-blue-100 text-blue-800';
+                                                      
+                          const statusText = isExceeded ? 'Exceeded' : 
+                                           isWarning ? 'Almost Full' : 
+                                                      'Approaching';
+                          
+                          return (
+                            <motion.div 
+                              key={client.id}
+                              className={`p-3 rounded-md flex items-center justify-between ${colorScheme}`}
+                              initial={{ opacity: 0, x: -10 }}
+                              animate={{ opacity: 1, x: 0 }}
+                              transition={{ duration: 0.3 }}
+                              whileHover={{ x: 3 }}
+                            >
+                              <div className="flex items-center">
+                                {isExceeded && <AlertTriangle className="h-5 w-5 text-red-500 mr-2" />}
+                                <div>
+                                  <p className="font-medium text-slate-800">{client.name}</p>
+                                  <div className="flex items-center">
+                                    <p className="text-sm">
+                                      <span className={`font-medium ${textColor}`}>
+                                        {sessionCount}/{packageLimit} sessions ({formattedPercentage}%)
+                                      </span>
+                                    </p>
+                                    <Badge className={`ml-2 ${badgeClass}`}>
+                                      {statusText}
+                                    </Badge>
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="flex gap-2">
+                                <Button 
+                                  size="sm"
+                                  variant="outline" 
+                                  onClick={() => router.push(`/attendance?clientId=${client.id}`)}
+                                  className="text-xs"
+                                >
+                                  Take Attendance
+                                </Button>
+                                <Button 
+                                  size="sm"
+                                  variant="outline" 
+                                  onClick={() => router.push(`/clients`)}
+                                  className="text-xs"
+                                >
+                                  View
+                                </Button>
+                              </div>
+                            </motion.div>
+                          );
+                        })}
+                      </div>
+                    );
+                  })()} 
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className="hover:shadow-lg transition-shadow duration-300">
             <CardHeader>
               <CardTitle>Quick Actions</CardTitle>
             </CardHeader>

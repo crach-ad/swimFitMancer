@@ -155,32 +155,32 @@ async function updateClientAttendanceStats(clientId: string): Promise<void> {
       return;
     }
     
-    // Calculate attendance info
+    // Calculate attendance count
     const sessionCount = clientAttendance.length;
-    const attendanceInfo = `Sessions attended: ${sessionCount}`;
     
-    // Update the client's notes field with attendance info
+    // Update the client's sessionCount for package tracking
     const { updateClient } = await import('./client-service');
     
-    // Check if the client already has notes and append to them
-    let updatedNotes = client.notes || '';
+    // Get clean notes without the sessions attended info (if any exists)
+    let cleanNotes = client.notes || '';
+    cleanNotes = cleanNotes.replace(/\s*\|?\s*Sessions attended: \d+/, '');
     
-    // If there are existing notes that don't contain attendance info, add a separator
-    if (updatedNotes && !updatedNotes.includes('Sessions attended:')) {
-      updatedNotes += ' | ';
+    // Remove any trailing or leading separators
+    cleanNotes = cleanNotes.replace(/^\s*\|\s*/, '').replace(/\s*\|\s*$/, '');
+    
+    // Remove notes entirely if they're now empty
+    if (!cleanNotes.trim()) {
+      cleanNotes = '';
     }
     
-    // Add/update the attendance info part of the notes
-    // This replaces any existing attendance info in the notes
-    if (updatedNotes.includes('Sessions attended:')) {
-      updatedNotes = updatedNotes.replace(/Sessions attended: \d+/, attendanceInfo);
-    } else {
-      updatedNotes += attendanceInfo;
-    }
-    
+    // Update the sessionCount property only - no more session count in notes
+    // This ensures there's only one source of truth for sessions attended
     await updateClient(clientId, {
-      notes: updatedNotes
+      notes: cleanNotes,
+      sessionCount: sessionCount
     });
+    
+    console.log(`Updated client ${client.name} with sessionCount=${sessionCount}`);
   } catch (error) {
     console.error('Error updating client attendance stats:', error);
   }

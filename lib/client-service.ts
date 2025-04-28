@@ -11,6 +11,8 @@ export interface Client {
   isActive: boolean;
   notes: string;
   qrCode?: string; // QR code data URL
+  packageLimit?: number; // Maximum number of sessions in a package
+  sessionCount?: number; // Current count of sessions attended
 }
 
 // Collection name for clients

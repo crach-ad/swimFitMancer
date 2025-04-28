@@ -7,10 +7,19 @@ import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { Label } from "@/components/ui/label"
+import {
+  Dialog,
+  DialogTrigger,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+  DialogClose
+} from "@/components/ui/dialog";
+import { toast } from "@/components/ui/use-toast";
+import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { toast } from "@/components/ui/use-toast"
 import { QRCodeDisplay } from "@/components/qr-code-display"
 import { Client } from "@/lib/client-service"
 import withAuth from "@/lib/firebase/with-auth"
@@ -26,6 +35,7 @@ function ClientsPage() {
     phone: "",
     level: "Beginner",
     notes: "",
+    packageLimit: 10, // Default package limit for new clients
   })
   const [formSubmitting, setFormSubmitting] = useState(false)
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -70,6 +80,65 @@ function ClientsPage() {
     setFormData(prev => ({ ...prev, [name]: value }))
   }
 
+  // State for success animation
+  const [showSuccessAnimation, setShowSuccessAnimation] = useState(false)
+  
+  // State for package limit adjustment
+  const [newPackageLimit, setNewPackageLimit] = useState<number | null>(null)
+
+  // Handle package limit update
+  const handleUpdatePackageLimit = async (clientId: string) => {
+    if (!newPackageLimit || newPackageLimit < 1) {
+      toast({
+        variant: "destructive",
+        title: "Invalid Value",
+        description: "Please enter a valid package limit greater than 0.",
+      })
+      return
+    }
+    
+    try {
+      // Update client package limit in database
+      const response = await fetch(`/api/clients/${clientId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ packageLimit: newPackageLimit }),
+      })
+      
+      if (!response.ok) {
+        throw new Error(`Error: ${response.status}`)
+      }
+      
+      // Show success message
+      toast({
+        title: "Package Limit Updated",
+        description: `Client's package limit has been set to ${newPackageLimit} sessions.`,
+      })
+      
+      // Refresh client list to show updated data
+      const updatedClientsResponse = await fetch("/api/clients")
+      if (updatedClientsResponse.ok) {
+        const data = await updatedClientsResponse.json()
+        
+        // Deduplicate clients by ID
+        const uniqueClients = Array.from(
+          new Map(data.clients.map((client: Client) => [client.id, client])).values()
+        ) as Client[]
+        
+        setClients(uniqueClients || [])
+      }
+    } catch (error) {
+      console.error("Failed to update package limit:", error)
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to update package limit. Please try again.",
+      })
+    }
+  }
+  
   // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -96,6 +165,7 @@ function ClientsPage() {
         body: JSON.stringify({
           ...formData,
           isActive: true,
+          sessionCount: 0, // Initialize session count to zero
           // QR code will be generated on the server side
         }),
       })
@@ -116,8 +186,15 @@ function ClientsPage() {
         phone: "",
         level: "Beginner",
         notes: "",
+        packageLimit: 10,
       })
       setDialogOpen(false)
+      
+      // Show success animation
+      setShowSuccessAnimation(true)
+      setTimeout(() => {
+        setShowSuccessAnimation(false)
+      }, 3000)
       
       toast({
         title: "Success",
@@ -224,6 +301,19 @@ function ClientsPage() {
                       onChange={handleInputChange}
                     />
                   </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="packageLimit">Package Limit (Sessions)</Label>
+                    <Input
+                      id="packageLimit"
+                      name="packageLimit"
+                      type="number"
+                      min="1"
+                      className="border-cyan-200"
+                      value={formData.packageLimit}
+                      onChange={handleInputChange}
+                    />
+                    <p className="text-xs text-cyan-600">Maximum number of sessions for this client</p>
+                  </div>
                   <Button 
                     type="submit" 
                     className="mt-2 bg-cyan-600 hover:bg-cyan-700"
@@ -265,6 +355,20 @@ function ClientsPage() {
         </div>
       </header>
 
+      {/* Success Animation */}
+      {showSuccessAnimation && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
+          <div className="bg-green-100 text-green-800 rounded-lg p-6 shadow-lg animate-bounce-once">
+            <div className="flex items-center">
+              <svg className="w-6 h-6 mr-2 text-green-600" fill="none" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24" stroke="currentColor">
+                <path d="M5 13l4 4L19 7"></path>
+              </svg>
+              <span className="text-lg font-semibold">Client Added Successfully!</span>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Client List */}
       <main className="p-4">
         {loading ? (
@@ -290,6 +394,8 @@ function ClientsPage() {
                       phone={client.phone}
                       notes={client.notes}
                       qrCode={client.qrCode}
+                      packageLimit={client.packageLimit}
+                      sessionCount={client.sessionCount}
                     />
                   ))}
                 </div>
@@ -309,6 +415,8 @@ function ClientsPage() {
                       phone={client.phone}
                       notes={client.notes}
                       qrCode={client.qrCode}
+                      packageLimit={client.packageLimit}
+                      sessionCount={client.sessionCount}
                     />
                   ))}
                 </div>
@@ -331,15 +439,82 @@ interface ClientCardProps {
   notes?: string;
   isActive?: boolean;
   qrCode?: string;
+  packageLimit?: number;
+  sessionCount?: number;
 }
 
-function ClientCard({ id, name, email, phone, notes, qrCode }: ClientCardProps) {
+function ClientCard({ id, name, email, phone, notes, qrCode, packageLimit = 10, sessionCount = 0 }: ClientCardProps) {
+  // State for package limit adjustment
+  const [newPackageLimit, setNewPackageLimit] = useState<number>(packageLimit);
+  const [isUpdating, setIsUpdating] = useState(false);
+  
   // Helper function to check if the client has notes
   const hasNotes = notes && notes.trim().length > 0;
+  
+  // Calculate package usage percentage
+  const packageUsage = packageLimit > 0 ? (sessionCount / packageLimit) * 100 : 0;
+  
+  // Determine if client is approaching package limit
+  const isApproachingLimit = packageUsage >= 80;
   
   // Generate badge class for notes
   const getNoteBadgeClass = () => {
     return "bg-cyan-100 text-cyan-700";
+  }
+  
+  // Generate badge class for package status
+  const getPackageBadgeClass = () => {
+    if (packageUsage >= 90) return "bg-red-100 text-red-700";
+    if (packageUsage >= 75) return "bg-amber-100 text-amber-700";
+    return "bg-emerald-100 text-emerald-700";
+  }
+  
+  // Handle package limit update
+  const handleUpdatePackageLimit = async (clientId: string) => {
+    if (!newPackageLimit || newPackageLimit < 1) {
+      toast({
+        variant: "destructive",
+        title: "Invalid Value",
+        description: "Please enter a valid package limit greater than 0.",
+      });
+      return;
+    }
+    
+    setIsUpdating(true);
+    
+    try {
+      // Update client package limit in database
+      const response = await fetch(`/api/clients/${clientId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ packageLimit: newPackageLimit }),
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Error: ${response.status}`);
+      }
+      
+      // Show success message
+      toast({
+        title: "Package Limit Updated",
+        description: `Package limit has been set to ${newPackageLimit} sessions.`,
+      });
+      
+      // Update the package limit in the UI
+      // This will trigger a page refresh
+      window.location.reload();
+    } catch (error) {
+      console.error("Failed to update package limit:", error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to update package limit. Please try again.",
+      });
+    } finally {
+      setIsUpdating(false);
+    }
   }
 
   return (
@@ -374,6 +549,11 @@ function ClientCard({ id, name, email, phone, notes, qrCode }: ClientCardProps) 
                       Has Notes
                     </Badge>
                   )}
+                  {packageLimit && (
+                    <Badge variant="outline" className={`mr-2 ${getPackageBadgeClass()}`}>
+                      {sessionCount}/{packageLimit} Sessions
+                    </Badge>
+                  )}
                   <div className="text-xs text-cyan-600">
                     {email}
                   </div>
@@ -406,6 +586,94 @@ function ClientCard({ id, name, email, phone, notes, qrCode }: ClientCardProps) 
             )}
           </div>
           
+          {/* Package information */}
+          {packageLimit > 0 && (
+            <div className="mt-4 w-full">
+              <div className="flex justify-between text-sm mb-1">
+                <span className="text-cyan-700">Package Usage:</span>
+                <span className="font-medium">{sessionCount}/{packageLimit} Sessions</span>
+              </div>
+              <div className="h-2 w-full bg-gray-200 rounded-full overflow-hidden">
+                <div 
+                  className={`h-full ${packageUsage >= 90 ? 'bg-red-500' : packageUsage >= 75 ? 'bg-amber-500' : 'bg-emerald-500'}`}
+                  style={{ width: `${Math.min(packageUsage, 100)}%` }}
+                ></div>
+              </div>
+              <div className="flex justify-end mt-1">
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="h-7 text-xs border-cyan-200 text-cyan-700"
+                      onClick={(e) => {
+                        e.stopPropagation(); // Prevent the client card dialog from closing
+                      }}
+                    >
+                      Adjust Package Limit
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-[425px]">
+                    <DialogHeader>
+                      <DialogTitle>Adjust Package Limit</DialogTitle>
+                      <DialogDescription>
+                        Update the maximum number of sessions for this client's package.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                      <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="packageLimit" className="text-right">
+                          Current Limit
+                        </Label>
+                        <Input
+                          id="currentLimit"
+                          value={packageLimit || 0}
+                          className="col-span-3"
+                          disabled
+                        />
+                      </div>
+                      <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="newLimit" className="text-right">
+                          New Limit
+                        </Label>
+                        <Input
+                          id="newLimit"
+                          type="number"
+                          defaultValue={packageLimit || 10}
+                          min={1}
+                          className="col-span-3"
+                          onChange={(e) => setNewPackageLimit(parseInt(e.target.value, 10) || 0)}
+                        />
+                      </div>
+                      <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="sessionCount" className="text-right">
+                          Sessions Used
+                        </Label>
+                        <Input
+                          id="sessionCount"
+                          value={sessionCount || 0}
+                          className="col-span-3"
+                          disabled
+                        />
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <DialogClose asChild>
+                        <Button variant="outline">Cancel</Button>
+                      </DialogClose>
+                      <Button 
+                        onClick={() => handleUpdatePackageLimit(id)}
+                        disabled={isUpdating}
+                      >
+                        {isUpdating ? 'Updating...' : 'Save Changes'}
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+              </div>
+            </div>
+          )}
+
           {/* QR code moved to bottom of profile */}
 
           <div className="mt-6 w-full space-y-4">
@@ -413,7 +681,10 @@ function ClientCard({ id, name, email, phone, notes, qrCode }: ClientCardProps) 
               {hasNotes && (
                 <div className="rounded-lg bg-cyan-50 p-3">
                   <div className="text-sm text-cyan-600">Notes</div>
-                  <div className="text-sm text-cyan-700">{notes}</div>
+                  <div className="text-sm text-cyan-700">
+                    {/* Remove any sessions attended text that might still be in notes */}
+                    {notes?.replace(/\s*\|?\s*Sessions attended: \d+/, '') || 'No notes available'}
+                  </div>
                 </div>
               )}
             </div>
