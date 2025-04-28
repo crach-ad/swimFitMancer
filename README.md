@@ -20,6 +20,11 @@ Enhanced swim training app with QR-based attendance tracking, client management 
 
 ## Recent Enhancements
 
+- **Package Limit Tracking**: Monitor client session usage with color-coded indicators
+- **Usage Notifications**: Dashboard alerts for clients approaching or exceeding their package limits
+- **Adjustable Limits**: Easily modify package limits for each client as needed
+- **Attendance Integration**: Session attendance automatically updates package usage metrics
+
 - Complete Firebase integration with Firestore database
 - Secure authentication system with protected routes
 - User profile management
