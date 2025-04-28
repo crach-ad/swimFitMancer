@@ -483,8 +483,8 @@ function ClientCard({ id, name, email, phone, notes, qrCode, packageLimit = 10, 
     setIsUpdating(true);
     
     try {
-      // Update client package limit in database
-      const response = await fetch(`/api/clients/${clientId}`, {
+      // Update client package limit in database using the new API endpoint
+      const response = await fetch(`/api/clients/update/${clientId}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
