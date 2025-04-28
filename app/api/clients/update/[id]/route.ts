@@ -1,10 +1,17 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { updateClient } from '@/lib/client-service';
+
+// Type definition for the context parameter
+type Context = {
+  params: {
+    id: string;
+  };
+};
 
 // This is a completely new implementation to resolve Vercel type errors
 export async function PATCH(
-  request: Request,
-  { params }: { params: { id: string }}
+  request: NextRequest,
+  { params }: Context
 ) {
   try {
     // Extract client ID from URL parameter

@@ -1,16 +1,22 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { updateClient } from '@/lib/client-service';
-import { IdRouteContext } from '@/lib/types/route-types';
+
+// Type definition for the context parameter
+type Context = {
+  params: {
+    id: string;
+  };
+};
 
 // Handles PATCH requests to update a client with the given ID
 // This endpoint specifically used for package limit updates
 export async function PATCH(
-  request: Request,
-  context: IdRouteContext
+  request: NextRequest,
+  { params }: Context
 ) {
   try {
     // Extract client ID from URL parameter
-    const clientId = context.params.id;
+    const clientId = params.id;
     
     // Parse request body for update data
     const data = await request.json();
